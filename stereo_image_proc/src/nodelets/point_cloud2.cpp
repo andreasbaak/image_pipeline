@@ -208,23 +208,59 @@ void PointCloud2Nodelet::imageCb(const ImageConstPtr& l_image_msg,
  
   float bad_point = std::numeric_limits<float>::quiet_NaN ();
   int offset = 0;
-  for (int v = 0; v < mat.rows; ++v)
+
+  switch (target_coordinate_system_)
   {
-    for (int u = 0; u < mat.cols; ++u, offset += STEP)
+    case CS_EAST_UP_SOUTH:
     {
-      if (isValidPoint(mat(v,u)))
+      for (int v = 0; v < mat.rows; ++v)
       {
-        // x,y,z,rgba
-        memcpy (&points_msg->data[offset + 0], &mat(v,u)[0], sizeof (float));
-        memcpy (&points_msg->data[offset + 4], &mat(v,u)[1], sizeof (float));
-        memcpy (&points_msg->data[offset + 8], &mat(v,u)[2], sizeof (float));
+        for (int u = 0; u < mat.cols; ++u, offset += STEP)
+        {
+          if (isValidPoint(mat(v,u)))
+          {
+            // x,y,z,rgba
+            memcpy (&points_msg->data[offset + 0], &mat(v,u)[0], sizeof (float));
+            memcpy (&points_msg->data[offset + 4], &mat(v,u)[1], sizeof (float));
+            memcpy (&points_msg->data[offset + 8], &mat(v,u)[2], sizeof (float));
+          }
+          else
+          {
+            memcpy (&points_msg->data[offset + 0], &bad_point, sizeof (float));
+            memcpy (&points_msg->data[offset + 4], &bad_point, sizeof (float));
+            memcpy (&points_msg->data[offset + 8], &bad_point, sizeof (float));
+          }
+        }
       }
-      else
+      break;
+    }
+    case CS_EAST_NORTH_UP:
+    {
+      for (int v = 0; v < mat.rows; ++v)
       {
-        memcpy (&points_msg->data[offset + 0], &bad_point, sizeof (float));
-        memcpy (&points_msg->data[offset + 4], &bad_point, sizeof (float));
-        memcpy (&points_msg->data[offset + 8], &bad_point, sizeof (float));
+        for (int u = 0; u < mat.cols; ++u, offset += STEP)
+        {
+          if (isValidPoint(mat(v,u)))
+          {
+            // x,y,z,rgba
+            memcpy (&points_msg->data[offset + 0], &mat(v,u)[0], sizeof (float));
+            memcpy (&points_msg->data[offset + 4], &mat(v,u)[2], sizeof (float));
+            const float z = -mat(v,u)[1];
+            memcpy (&points_msg->data[offset + 8], &z, sizeof (float));
+          }
+          else
+          {
+            memcpy (&points_msg->data[offset + 0], &bad_point, sizeof (float));
+            memcpy (&points_msg->data[offset + 4], &bad_point, sizeof (float));
+            memcpy (&points_msg->data[offset + 8], &bad_point, sizeof (float));
+          }
+        }
       }
+      break;
+    }
+    default:
+    {
+      NODELET_ERROR("Conversion to 3D points for given target coordinate system %d not implemented.", toInt(target_coordinate_system_));
     }
   }
 
