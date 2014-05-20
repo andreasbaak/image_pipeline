@@ -99,6 +99,11 @@ private:
            const ImageConstPtr& l_image_msg,
            PointCloud2Ptr points_msg);
 
+  void fillMetaData(const std_msgs::Header& header,
+           const int height,
+           const int width,
+           PointCloud2Ptr points_msg);
+
   void imageCb(const ImageConstPtr& l_image_msg,
                const CameraInfoConstPtr& l_info_msg,
                const CameraInfoConstPtr& r_info_msg,
@@ -193,32 +198,8 @@ void PointCloud2Nodelet::imageCb(const ImageConstPtr& l_image_msg,
 
   // Fill in new PointCloud2 message (2D image-like layout)
   PointCloud2Ptr points_msg = boost::make_shared<PointCloud2>();
-  points_msg->header = disp_msg->header;
-  points_msg->height = mat.rows;
-  points_msg->width  = mat.cols;
-  points_msg->fields.resize (4);
-  points_msg->fields[0].name = "x";
-  points_msg->fields[0].offset = 0;
-  points_msg->fields[0].count = 1;
-  points_msg->fields[0].datatype = PointField::FLOAT32;
-  points_msg->fields[1].name = "y";
-  points_msg->fields[1].offset = 4;
-  points_msg->fields[1].count = 1;
-  points_msg->fields[1].datatype = PointField::FLOAT32;
-  points_msg->fields[2].name = "z";
-  points_msg->fields[2].offset = 8;
-  points_msg->fields[2].count = 1;
-  points_msg->fields[2].datatype = PointField::FLOAT32;
-  points_msg->fields[3].name = "rgb";
-  points_msg->fields[3].offset = 12;
-  points_msg->fields[3].count = 1;
-  points_msg->fields[3].datatype = PointField::FLOAT32;
-  //points_msg->is_bigendian = false; ???
-  points_msg->point_step = STEP;
-  points_msg->row_step = points_msg->point_step * points_msg->width;
-  points_msg->data.resize (points_msg->row_step * points_msg->height);
-  points_msg->is_dense = false; // there may be invalid points
- 
+  fillMetaData(l_image_msg->header, dmat.rows, dmat.cols, points_msg);
+
   float bad_point = std::numeric_limits<float>::quiet_NaN ();
   int offset = 0;
 
@@ -279,6 +260,40 @@ void PointCloud2Nodelet::imageCb(const ImageConstPtr& l_image_msg,
 
   fillColor(l_image_msg, points_msg);
   pub_points2_.publish(points_msg);
+}
+
+void PointCloud2Nodelet::fillMetaData(const std_msgs::Header& header,
+        const int height,
+        const int width,
+        PointCloud2Ptr points_msg)
+{
+    // Fill in metadata for PointCloud2 message (2D image-like layout)
+    points_msg->header = header;
+    points_msg->height = height;
+    points_msg->width  = width;
+    points_msg->fields.resize (4);
+    points_msg->fields[0].name = "x";
+    points_msg->fields[0].offset = 0;
+    points_msg->fields[0].count = 1;
+    points_msg->fields[0].datatype = PointField::FLOAT32;
+    points_msg->fields[1].name = "y";
+    points_msg->fields[1].offset = 4;
+    points_msg->fields[1].count = 1;
+    points_msg->fields[1].datatype = PointField::FLOAT32;
+    points_msg->fields[2].name = "z";
+    points_msg->fields[2].offset = 8;
+    points_msg->fields[2].count = 1;
+    points_msg->fields[2].datatype = PointField::FLOAT32;
+    points_msg->fields[3].name = "rgb";
+    points_msg->fields[3].offset = 12;
+    points_msg->fields[3].count = 1;
+    points_msg->fields[3].datatype = PointField::FLOAT32;
+    //points_msg->is_bigendian = false; ???
+    points_msg->point_step = STEP;
+    points_msg->row_step = STEP * width;
+    points_msg->data.resize (points_msg->row_step * height);
+    points_msg->is_dense = false; // there may be invalid points
+
 }
 
 void PointCloud2Nodelet::fillColor(const ImageConstPtr& l_image_msg,
