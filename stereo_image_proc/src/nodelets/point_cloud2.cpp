@@ -123,8 +123,10 @@ void PointCloud2Nodelet::onInit()
                                               this, _1, _2, _3, _4));
   }
 
-  // initialize default value for target coordinate system
-  target_coordinate_system_ = CS_EAST_UP_SOUTH;
+  // Receive the target_coordinate_system parameter
+  int coordinateSystemId;
+  private_nh.param("target_coordinate_system", coordinateSystemId, toInt(CS_EAST_UP_SOUTH));
+  target_coordinate_system_ = fromInt(coordinateSystemId);
 
   // Monitor whether anyone is subscribed to the output
   ros::SubscriberStatusCallback connect_cb = boost::bind(&PointCloud2Nodelet::connectCb, this);

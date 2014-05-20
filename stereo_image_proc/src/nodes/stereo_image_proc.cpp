@@ -35,6 +35,7 @@
 #include <ros/ros.h>
 #include <nodelet/loader.h>
 #include <image_proc/advertisement_checker.h>
+#include "../common/parameters.h"
 
 void loadMonocularNodelets(nodelet::Loader& manager, const std::string& side,
                            const XmlRpc::XmlRpcValue& rectify_params,
@@ -105,6 +106,11 @@ int main(int argc, char **argv)
   int queue_size;
   if (private_nh.getParam("queue_size", queue_size))
     shared_params["queue_size"] = queue_size;
+
+  std::string coordinateSystemType;
+  private_nh.param("target_coordinate_system", coordinateSystemType, CS_EAST_UP_SOUTH_STR);
+  const CoordinateSystem coordinateSystem = fromString(coordinateSystemType);
+  shared_params["target_coordinate_system"] = XmlRpc::XmlRpcValue(toInt(coordinateSystem));
 
   nodelet::Loader manager(false); // Don't bring up the manager ROS API
   nodelet::M_string remappings;
