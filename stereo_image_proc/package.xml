@@ -1,5 +1,5 @@
 <package>
-  <name>stereo_image_proc</name>
+  <name>stereo_image_proc_aurum</name>
   <version>1.11.6</version>
   <description>Stereo and single image rectification and disparity processing.</description>
   <author>Patrick Mihelich</author>

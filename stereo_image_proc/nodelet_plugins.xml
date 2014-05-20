@@ -1,14 +1,14 @@
-<library path="lib/libstereo_image_proc">
+<library path="lib/libstereo_image_proc_aurum">
 
-  <class name="stereo_image_proc/disparity" type="stereo_image_proc::DisparityNodelet" base_class_type="nodelet::Nodelet">
+  <class name="stereo_image_proc_aurum/disparity" type="stereo_image_proc::DisparityNodelet" base_class_type="nodelet::Nodelet">
     <description>Nodelet to perform stereo processing on a pair of rectified image streams, producing disparity images</description>
   </class>
 
-  <class name="stereo_image_proc/point_cloud2" type="stereo_image_proc::PointCloud2Nodelet" base_class_type="nodelet::Nodelet">
+  <class name="stereo_image_proc_aurum/point_cloud2" type="stereo_image_proc_aurum::PointCloud2Nodelet" base_class_type="nodelet::Nodelet">
     <description>Nodelet to produce XYZRGB PointCloud2 messages</description>
   </class>
 
-  <class name="stereo_image_proc/point_cloud" type="stereo_image_proc::PointCloudNodelet" base_class_type="nodelet::Nodelet">
+  <class name="stereo_image_proc_aurum/point_cloud" type="stereo_image_proc::PointCloudNodelet" base_class_type="nodelet::Nodelet">
     <description>Nodelet to produce XYZRGB PointCloud (deprecated) messages</description>
   </class>
 

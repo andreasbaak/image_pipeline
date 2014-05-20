@@ -52,7 +52,7 @@
 
 #include "../common/parameters.h"
 
-namespace stereo_image_proc {
+namespace stereo_image_proc_aurum {
 
 using namespace sensor_msgs;
 using namespace stereo_msgs;
@@ -404,8 +404,8 @@ void PointCloud2Nodelet::fillColor(const ImageConstPtr& l_image_msg,
     }
 }
 
-} // namespace stereo_image_proc
+} // namespace stereo_image_proc_aurum
 
 // Register nodelet
 #include <pluginlib/class_list_macros.h>
-PLUGINLIB_EXPORT_CLASS(stereo_image_proc::PointCloud2Nodelet,nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(stereo_image_proc_aurum::PointCloud2Nodelet,nodelet::Nodelet)

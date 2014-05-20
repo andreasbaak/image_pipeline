@@ -53,7 +53,7 @@
 #include <sensor_msgs/image_encodings.h>
 #include <stereo_msgs/DisparityImage.h>
 
-#include <stereo_image_proc/DisparityConfig.h>
+#include <stereo_image_proc_aurum/DisparityConfig.h>
 #include <dynamic_reconfigure/server.h>
 
 namespace stereo_image_proc {

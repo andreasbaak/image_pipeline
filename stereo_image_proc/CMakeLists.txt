@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8)
-project(stereo_image_proc)
+project(stereo_image_proc_aurum)
 
 find_package(catkin REQUIRED cv_bridge dynamic_reconfigure image_geometry image_proc image_transport message_filters nodelet sensor_msgs stereo_msgs)
 find_package(Boost REQUIRED COMPONENTS thread)
@@ -43,10 +43,10 @@ install(FILES nodelet_plugins.xml
 )
 
 # Standalone node
-add_executable(stereoimageproc_exe src/nodes/stereo_image_proc.cpp)
-target_link_libraries(stereoimageproc_exe stereo_image_proc)
-SET_TARGET_PROPERTIES(stereoimageproc_exe PROPERTIES OUTPUT_NAME stereo_image_proc)
-install(TARGETS stereoimageproc_exe
+add_executable(stereoimageproc_aurum_exe src/nodes/stereo_image_proc.cpp)
+target_link_libraries(stereoimageproc_aurum_exe stereo_image_proc_aurum)
+SET_TARGET_PROPERTIES(stereoimageproc_aurum_exe PROPERTIES OUTPUT_NAME stereo_image_proc_aurum)
+install(TARGETS stereoimageproc_aurum_exe
         DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
