@@ -50,6 +50,8 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <sensor_msgs/image_encodings.h>
 
+#include "../common/parameters.h"
+
 namespace stereo_image_proc {
 
 using namespace sensor_msgs;
@@ -79,6 +81,9 @@ class PointCloud2Nodelet : public nodelet::Nodelet
   image_geometry::StereoCameraModel model_;
   cv::Mat_<cv::Vec3f> points_mat_; // scratch buffer
   
+  // Holds the coordinate system for which the point cloud will be generated
+  CoordinateSystem target_coordinate_system_;
+
   virtual void onInit();
 
   void connectCb();
@@ -117,6 +122,9 @@ void PointCloud2Nodelet::onInit()
     exact_sync_->registerCallback(boost::bind(&PointCloud2Nodelet::imageCb,
                                               this, _1, _2, _3, _4));
   }
+
+  // initialize default value for target coordinate system
+  target_coordinate_system_ = CS_EAST_UP_SOUTH;
 
   // Monitor whether anyone is subscribed to the output
   ros::SubscriberStatusCallback connect_cb = boost::bind(&PointCloud2Nodelet::connectCb, this);
