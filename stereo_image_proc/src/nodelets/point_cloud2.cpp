@@ -60,6 +60,13 @@ using namespace message_filters::sync_policies;
 
 class PointCloud2Nodelet : public nodelet::Nodelet
 {
+public:
+  PointCloud2Nodelet()
+          : nodelet::Nodelet()
+          , STEP(16)
+  { };
+
+private:
   boost::shared_ptr<image_transport::ImageTransport> it_;
 
   // Subscriptions
@@ -92,6 +99,7 @@ class PointCloud2Nodelet : public nodelet::Nodelet
                const CameraInfoConstPtr& l_info_msg,
                const CameraInfoConstPtr& r_info_msg,
                const DisparityImageConstPtr& disp_msg);
+  const int STEP;
 };
 
 void PointCloud2Nodelet::onInit()
@@ -202,7 +210,6 @@ void PointCloud2Nodelet::imageCb(const ImageConstPtr& l_image_msg,
   points_msg->fields[3].count = 1;
   points_msg->fields[3].datatype = PointField::FLOAT32;
   //points_msg->is_bigendian = false; ???
-  static const int STEP = 16;
   points_msg->point_step = STEP;
   points_msg->row_step = points_msg->point_step * points_msg->width;
   points_msg->data.resize (points_msg->row_step * points_msg->height);
