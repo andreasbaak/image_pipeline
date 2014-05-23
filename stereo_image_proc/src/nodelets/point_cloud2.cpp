@@ -95,6 +95,10 @@ private:
 
   void connectCb();
 
+  void fillColor(
+           const ImageConstPtr& l_image_msg,
+           PointCloud2Ptr points_msg);
+
   void imageCb(const ImageConstPtr& l_image_msg,
                const CameraInfoConstPtr& l_info_msg,
                const CameraInfoConstPtr& r_info_msg,
@@ -273,83 +277,70 @@ void PointCloud2Nodelet::imageCb(const ImageConstPtr& l_image_msg,
     }
   }
 
-  // Fill in color
-  namespace enc = sensor_msgs::image_encodings;
-  const std::string& encoding = l_image_msg->encoding;
-  offset = 0;
-  if (encoding == enc::MONO8)
-  {
-    const cv::Mat_<uint8_t> color(l_image_msg->height, l_image_msg->width,
-                                  (uint8_t*)&l_image_msg->data[0],
-                                  l_image_msg->step);
-    for (int v = 0; v < mat.rows; ++v)
-    {
-      for (int u = 0; u < mat.cols; ++u, offset += STEP)
-      {
-        if (isValidPoint(mat(v,u)))
-        {
-          uint8_t g = color(v,u);
-          int32_t rgb = (g << 16) | (g << 8) | g;
-          memcpy (&points_msg->data[offset + 12], &rgb, sizeof (int32_t));
-        }
-        else
-        {
-          memcpy (&points_msg->data[offset + 12], &bad_point, sizeof (float));
-        }
-      }
-    }
-  }
-  else if (encoding == enc::RGB8)
-  {
-    const cv::Mat_<cv::Vec3b> color(l_image_msg->height, l_image_msg->width,
-                                    (cv::Vec3b*)&l_image_msg->data[0],
-                                    l_image_msg->step);
-    for (int v = 0; v < mat.rows; ++v)
-    {
-      for (int u = 0; u < mat.cols; ++u, offset += STEP)
-      {
-        if (isValidPoint(mat(v,u)))
-        {
-          const cv::Vec3b& rgb = color(v,u);
-          int32_t rgb_packed = (rgb[0] << 16) | (rgb[1] << 8) | rgb[2];
-          memcpy (&points_msg->data[offset + 12], &rgb_packed, sizeof (int32_t));
-        }
-        else
-        {
-          memcpy (&points_msg->data[offset + 12], &bad_point, sizeof (float));
-        }
-      }
-    }
-  }
-  else if (encoding == enc::BGR8)
-  {
-    const cv::Mat_<cv::Vec3b> color(l_image_msg->height, l_image_msg->width,
-                                    (cv::Vec3b*)&l_image_msg->data[0],
-                                    l_image_msg->step);
-    for (int v = 0; v < mat.rows; ++v)
-    {
-      for (int u = 0; u < mat.cols; ++u, offset += STEP)
-      {
-        if (isValidPoint(mat(v,u)))
-        {
-          const cv::Vec3b& bgr = color(v,u);
-          int32_t rgb_packed = (bgr[2] << 16) | (bgr[1] << 8) | bgr[0];
-          memcpy (&points_msg->data[offset + 12], &rgb_packed, sizeof (int32_t));
-        }
-        else
-        {
-          memcpy (&points_msg->data[offset + 12], &bad_point, sizeof (float));
-        }
-      }
-    }
-  }
-  else
-  {
-    NODELET_WARN_THROTTLE(30, "Could not fill color channel of the point cloud, "
-                          "unsupported encoding '%s'", encoding.c_str());
-  }
-
+  fillColor(l_image_msg, points_msg);
   pub_points2_.publish(points_msg);
+}
+
+void PointCloud2Nodelet::fillColor(const ImageConstPtr& l_image_msg,
+        PointCloud2Ptr points_msg)
+{
+    // Fill in color
+    namespace enc = sensor_msgs::image_encodings;
+    const std::string& encoding = l_image_msg->encoding;
+    int offset = 0;
+    const int rows = l_image_msg->height;
+    const int cols = l_image_msg->width;
+
+    if (encoding == enc::MONO8)
+    {
+      const cv::Mat_<uint8_t> color(rows, cols,
+                                    (uint8_t*)&l_image_msg->data[0],
+                                    l_image_msg->step);
+      for (int v = 0; v < rows; ++v)
+      {
+        for (int u = 0; u < cols; ++u, offset += STEP)
+        {
+            uint8_t g = color(v,u);
+            int32_t rgb = (g << 16) | (g << 8) | g;
+            memcpy (&points_msg->data[offset + 12], &rgb, sizeof (int32_t));
+        }
+      }
+    }
+    else if (encoding == enc::RGB8)
+    {
+      const cv::Mat_<cv::Vec3b> color(l_image_msg->height, l_image_msg->width,
+                                      (cv::Vec3b*)&l_image_msg->data[0],
+                                      l_image_msg->step);
+      for (int v = 0; v < rows; ++v)
+      {
+        for (int u = 0; u < cols; ++u, offset += STEP)
+        {
+            const cv::Vec3b& rgb = color(v,u);
+            int32_t rgb_packed = (rgb[0] << 16) | (rgb[1] << 8) | rgb[2];
+            memcpy (&points_msg->data[offset + 12], &rgb_packed, sizeof (int32_t));
+        }
+      }
+    }
+    else if (encoding == enc::BGR8)
+    {
+      const cv::Mat_<cv::Vec3b> color(l_image_msg->height, l_image_msg->width,
+                                      (cv::Vec3b*)&l_image_msg->data[0],
+                                      l_image_msg->step);
+      for (int v = 0; v < rows; ++v)
+      {
+        for (int u = 0; u < cols; ++u, offset += STEP)
+        {
+            const cv::Vec3b& bgr = color(v,u);
+            int32_t rgb_packed = (bgr[2] << 16) | (bgr[1] << 8) | bgr[0];
+            memcpy (&points_msg->data[offset + 12], &rgb_packed, sizeof (int32_t));
+        }
+      }
+    }
+    else
+    {
+      NODELET_WARN_THROTTLE(30, "Could not fill color channel of the point cloud, "
+                            "unsupported encoding '%s'", encoding.c_str());
+    }
 }
 
 } // namespace stereo_image_proc
