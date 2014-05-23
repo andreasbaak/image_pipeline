@@ -225,8 +225,18 @@ void PointCloud2Nodelet::imageCb(const ImageConstPtr& l_image_msg,
 
   PointCloud2Ptr points_msg = boost::make_shared<PointCloud2>();
   fillMetaData(l_image_msg->header, dmat.rows, dmat.cols, points_msg);
-  unprojectAndFillPoints(l_info_msg, r_info_msg, dmat, points_msg);
-  fillColor(l_image_msg, points_msg);
+
+  #pragma omp parallel sections
+  {
+    #pragma omp section
+    {
+      unprojectAndFillPoints(l_info_msg, r_info_msg, dmat, points_msg);
+    }
+    #pragma omp section
+    {
+      fillColor(l_image_msg, points_msg);
+    }
+  }
 
   pub_points2_.publish(points_msg);
 }
