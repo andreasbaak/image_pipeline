@@ -84,10 +84,6 @@ private:
   boost::mutex connect_mutex_;
   ros::Publisher pub_points2_;
 
-  // Processing state (note: only safe because we're single-threaded!)
-  image_geometry::StereoCameraModel model_;
-  cv::Mat_<cv::Vec3f> points_mat_; // scratch buffer
-  
   // Holds the coordinate system for which the point cloud will be generated
   CoordinateSystem target_coordinate_system_;
 
@@ -104,12 +100,55 @@ private:
            const int width,
            PointCloud2Ptr points_msg);
 
+  void unprojectAndFillPoints(
+           const CameraInfoConstPtr& l_info_msg,
+           const CameraInfoConstPtr& r_info_msg,
+           const cv::Mat_<float>& dmat,
+           PointCloud2Ptr& points_msg);
+
   void imageCb(const ImageConstPtr& l_image_msg,
                const CameraInfoConstPtr& l_info_msg,
                const CameraInfoConstPtr& r_info_msg,
                const DisparityImageConstPtr& disp_msg);
   const int STEP;
 };
+
+inline cv::Point3f UnprojectPoint(const cv::Mat_<float>& Q, const int x, const int y, const float disparity)
+{
+    const cv::Point3f XYZ(x + Q(0, 3), y + Q(1, 3), Q(2, 3));
+    const float W = Q(3, 2) * disparity + Q(3, 3);
+    return XYZ * (1.0 / W);
+}
+
+/* The formula is taken from from the Springer Handbook of Robotics, p. 524:
+ * However, we only enter the values
+ * that we actually use in the UnprojectPoint function.
+ *
+ * Q = [  1  0  0     -Cx;
+ *        0  1  0     -Cy;
+ *        0  0  0      Fx;
+ *        0  0 -1/Tx   (Cx-Cx')/Tx]
+ *
+ * The code for copying the values into the matrix is taken from the
+ * OpenCV StereoCameraModel::updateQ() function, see the OpenCV source code
+ * image_geometry/src/stereo_camera_model.cpp, revision 29354.
+ */
+inline cv::Mat_<float> ComputeQ(const CameraInfoConstPtr& left_msg,
+        const CameraInfoConstPtr& right_msg)
+{
+    image_geometry::PinholeCameraModel left;
+    image_geometry::PinholeCameraModel right;
+    left.fromCameraInfo(left_msg);
+    right.fromCameraInfo(right_msg);
+    cv::Mat_<float> Q(4, 4, 0.0);
+    const float baseline = -right.Tx() / right.fx();
+    Q(3, 2) = 1.0 / baseline;
+    Q(0, 3) = -right.cx();
+    Q(1, 3) = -right.cy();
+    Q(2, 3) = right.fx();
+    Q(3, 3) = (right.cx() - left.cx()) / baseline;
+    return Q;
+}
 
 void PointCloud2Nodelet::onInit()
 {
@@ -175,91 +214,88 @@ void PointCloud2Nodelet::connectCb()
   }
 }
 
-inline bool isValidPoint(const cv::Vec3f& pt)
-{
-  // Check both for disparities explicitly marked as invalid (where OpenCV maps pt.z to MISSING_Z)
-  // and zero disparities (point mapped to infinity).
-  return pt[2] != image_geometry::StereoCameraModel::MISSING_Z && !std::isinf(pt[2]);
-}
-
 void PointCloud2Nodelet::imageCb(const ImageConstPtr& l_image_msg,
                                  const CameraInfoConstPtr& l_info_msg,
                                  const CameraInfoConstPtr& r_info_msg,
                                  const DisparityImageConstPtr& disp_msg)
 {
-  // Update the camera model
-  model_.fromCameraInfo(l_info_msg, r_info_msg);
-
   // Calculate point cloud
   const Image& dimage = disp_msg->image;
   const cv::Mat_<float> dmat(dimage.height, dimage.width, (float*)&dimage.data[0], dimage.step);
-  model_.projectDisparityImageTo3d(dmat, points_mat_, true);
-  cv::Mat_<cv::Vec3f> mat = points_mat_;
 
-  // Fill in new PointCloud2 message (2D image-like layout)
   PointCloud2Ptr points_msg = boost::make_shared<PointCloud2>();
   fillMetaData(l_image_msg->header, dmat.rows, dmat.cols, points_msg);
-
-  float bad_point = std::numeric_limits<float>::quiet_NaN ();
-  int offset = 0;
-
-  switch (target_coordinate_system_)
-  {
-    case CS_EAST_UP_SOUTH:
-    {
-      for (int v = 0; v < mat.rows; ++v)
-      {
-        for (int u = 0; u < mat.cols; ++u, offset += STEP)
-        {
-          if (isValidPoint(mat(v,u)))
-          {
-            // x,y,z,rgba
-            memcpy (&points_msg->data[offset + 0], &mat(v,u)[0], sizeof (float));
-            memcpy (&points_msg->data[offset + 4], &mat(v,u)[1], sizeof (float));
-            memcpy (&points_msg->data[offset + 8], &mat(v,u)[2], sizeof (float));
-          }
-          else
-          {
-            memcpy (&points_msg->data[offset + 0], &bad_point, sizeof (float));
-            memcpy (&points_msg->data[offset + 4], &bad_point, sizeof (float));
-            memcpy (&points_msg->data[offset + 8], &bad_point, sizeof (float));
-          }
-        }
-      }
-      break;
-    }
-    case CS_EAST_NORTH_UP:
-    {
-      for (int v = 0; v < mat.rows; ++v)
-      {
-        for (int u = 0; u < mat.cols; ++u, offset += STEP)
-        {
-          if (isValidPoint(mat(v,u)))
-          {
-            // x,y,z,rgba
-            memcpy (&points_msg->data[offset + 0], &mat(v,u)[0], sizeof (float));
-            memcpy (&points_msg->data[offset + 4], &mat(v,u)[2], sizeof (float));
-            const float z = -mat(v,u)[1];
-            memcpy (&points_msg->data[offset + 8], &z, sizeof (float));
-          }
-          else
-          {
-            memcpy (&points_msg->data[offset + 0], &bad_point, sizeof (float));
-            memcpy (&points_msg->data[offset + 4], &bad_point, sizeof (float));
-            memcpy (&points_msg->data[offset + 8], &bad_point, sizeof (float));
-          }
-        }
-      }
-      break;
-    }
-    default:
-    {
-      NODELET_ERROR("Conversion to 3D points for given target coordinate system %d not implemented.", toInt(target_coordinate_system_));
-    }
-  }
-
+  unprojectAndFillPoints(l_info_msg, r_info_msg, dmat, points_msg);
   fillColor(l_image_msg, points_msg);
+
   pub_points2_.publish(points_msg);
+}
+
+void PointCloud2Nodelet::unprojectAndFillPoints(
+        const CameraInfoConstPtr& l_info_msg,
+        const CameraInfoConstPtr& r_info_msg,
+        const cv::Mat_<float>& dmat,
+        PointCloud2Ptr& points_msg)
+{
+    const float BAD_POINT = std::numeric_limits<float>::quiet_NaN ();
+    const cv::Mat_<float> Q = ComputeQ(l_info_msg, r_info_msg);
+    int offset = 0;
+    switch (target_coordinate_system_)
+    {
+      case CS_EAST_UP_SOUTH:
+      {
+        for (int v = 0; v < dmat.rows; ++v)
+        {
+          for (int u = 0; u < dmat.cols; ++u, offset += STEP)
+          {
+            const float disparity = dmat.at<float>(v, u);
+            if (disparity <= 0)
+            {
+                memcpy (&points_msg->data[offset + 0], &BAD_POINT, sizeof (float));
+                memcpy (&points_msg->data[offset + 4], &BAD_POINT, sizeof (float));
+                memcpy (&points_msg->data[offset + 8], &BAD_POINT, sizeof (float));
+            }
+            else
+            {
+                const cv::Point3f vec = UnprojectPoint(Q, u, v, disparity);
+                memcpy(&points_msg->data[offset + 0], &vec.x, sizeof(float));
+                memcpy(&points_msg->data[offset + 4], &vec.y, sizeof(float));
+                memcpy(&points_msg->data[offset + 8], &vec.z, sizeof(float));
+            }
+          }
+        }
+        break;
+      }
+      case CS_EAST_NORTH_UP:
+      {
+        for (int v = 0; v < dmat.rows; ++v)
+        {
+          for (int u = 0; u < dmat.cols; ++u, offset += STEP)
+          {
+              const float disparity = dmat.at<float>(v, u);
+              if (disparity <= 0)
+              {
+                  memcpy (&points_msg->data[offset + 0], &BAD_POINT, sizeof (float));
+                  memcpy (&points_msg->data[offset + 4], &BAD_POINT, sizeof (float));
+                  memcpy (&points_msg->data[offset + 8], &BAD_POINT, sizeof (float));
+              }
+              else
+              {
+                  const cv::Point3f vec = UnprojectPoint(Q, u, v, disparity);
+                  memcpy(&points_msg->data[offset + 0], &vec.x, sizeof(float));
+                  memcpy(&points_msg->data[offset + 4], &vec.z, sizeof(float));
+                  const float z = -vec.y;
+                  memcpy(&points_msg->data[offset + 8], &z, sizeof(float));
+              }
+          }
+        }
+        break;
+      }
+      default:
+      {
+          NODELET_ERROR("Conversion to 3D points for given target coordinate system %d not implemented.", toInt(target_coordinate_system_));
+      }
+    }
 }
 
 void PointCloud2Nodelet::fillMetaData(const std_msgs::Header& header,
